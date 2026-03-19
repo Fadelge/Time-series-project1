@@ -1,0 +1,197 @@
+---
+title: "MTH6139 Time Series" 
+subtitle: "Coursework 1" 
+author: "Georgio Fadel" 
+date: "Spring term 2025" 
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab 
+    highlight: tango
+---
+
+# Introduction
+
+The nottem dataset is a time series containing average monthly air temperatures at Nottingham Castle in degrees Fahrenheit over 20 years. The purpose of this project is to analyse the nottem time series using the Prophet model and explore its main features. By fitting the model I can check how well Prophet captures the behaviour of the series.
+
+---
+
+# Forecasting Nottingham temperatures.
+
+The code below converts the nottem time series into a data frame displayed with, ds and y representing dates and observed values respectively. A Prophet model is used to forecast the future nottem dates.
+
+```{r, warning=FALSE, message=FALSE}
+library(prophet)
+library(zoo)
+nottemdata = data.frame(ds = as.Date(as.yearmon(time(nottem))), y = as.numeric(nottem))
+prophetmodel = prophet(nottemdata)
+futuredates = make_future_dataframe(prophetmodel, periods = 12, freq = "month")
+forecastresult = predict(prophetmodel, futuredates)
+plot(prophetmodel,forecastresult, xlab = "Date",ylab = "Temperature",main = "Prophet Forecast for nottem")
+
+```
+
+Explanations for each line of code:
+
+- library(prophet) is loaded to use forecasting tools for the time series data and modelling the trend and seasonal patterns.
+
+- The zoo package is used to convert the time values of the dataset into a format that can be represented with dates.
+
+- nottemdata = data.frame(ds = as.Date(as.yearmon(time(nottem))), y = as.numeric(nottem)), represents the nottemdata, the ds column shows the dates and the y shows the observed nottem values.
+
+- prophetmodel = prophet(nottemdata) creates a model that can learn the trends and seasonality of the nottem dataset.
+
+- futuredates = make_future_dataframe(prophetmodel, periods = 12, freq = "month") this extends the dataset by 12 months or 1 year.
+
+- forecastresult = predict(prophetmodel, futuredates) this applies the Prophet model to generate predicted nottem values for the future dates.
+
+- plot(prophetmodel,forecastresult, xlab = "Date",ylab = "Temperature",main = "Prophet Forecast for nottem") produces a visualisation of the forecast showing the historical data along with the model.
+
+The black dots on the graph represent the historical nottem observations and the blue line is the fitted line for the Prophet model. The plot demonstrates no strong overall trend but it shows strong seasonality, which means that temperature changes in the short term over time, but in the long run the level stays stable. The model is projected to continue this seasonal pattern in the future.
+
+---
+
+# Prophet trend and seasonal components.
+
+While plot(prophetmodel,forecastresult, xlab = "Date",ylab = "Temperature",main = "Prophet Forecast for nottem") displays the overall forecast the y(t)=trend+seasonality+residuals, this plot separates the trend and seasonality and displays them.
+```{r, warning=FALSE, message=FALSE}
+prophet_plot_components(prophetmodel, forecastresult)
+```
+
+- prophet_plot_components(prophetmodel, forecastresult) displays the main components of the Prophet model and separates forecast into trend and seasonal pattern.
+
+The trend graph shows a very small upward trend throughout the years after 1925, the increase in the trend is marginal and only becomes noticeable after a long period of time so it should be taken with caution as it may not be accurate.
+The other graph shows the seasonal pattern of the data, the data depicts that during summer the temperature is warmer like around July and during winter the temperature is colder during the winter months which is what we would expect.
+
+---
+
+# Checking residuals/noise
+
+While plot(prophetmodel, forecastresult) displays the overall forecast the y(t)=trend+seasonality+residuals, this plot checks residuals/noise. 
+```{r, warning=FALSE, message=FALSE}
+residuals_prophet = nottemdata$y - forecastresult$yhat[1:nrow(nottemdata)] 
+plot(nottemdata$ds, residuals_prophet, type="l", main="Residuals of Prophet Model", xlab = "year", ylab = "residuals")
+acf(residuals_prophet, main = "ACF of Prophet Residuals")
+Box.test(residuals_prophet, lag = 12, type = "Ljung-Box")
+
+```
+
+
+- residuals_prophet = nottemdata$y - forecastresult$yhat[1:nrow(nottemdata)] calculates the residuals in the Prophet model by subtracting the fitted values from the observed values this gives the difference between the data and the model prediction.
+
+- plot(nottemdata$ds, residuals_prophet, type="l", main="Residuals of Prophet Model", xlab = "year", ylab = "residuals") plots the residuals against time as a line graph, this is to check if there is any pattern.
+
+- acf(residuals_prophet, main = "ACF of Prophet Residuals") creates an ACF plot of the residuals, to check if the residuals correlate with their past values at different lags
+
+- Box.test(residuals_prophet, lag = 12, type = "Ljung-Box") tests whether there is significant autocorrelation in the residuals.
+
+The residual plot checks the difference between the observed values and the fitted values from the Prophet model. The residuals here fluctuate around 0 with no strong overall pattern which means the Prophet model captures the main features of the nottem series reasonably well. However, by looking at the ACF plot we can get a more in depth analysis of the residuals and we can clearly see that at points 1,2 and 12 that the points might not just be white noise or randomness so a more in depth analysis is needed with the Box-Ljung. Using the test we find p = 0.001868 which is less than the 0.05 significance level. This suggests that the prophet model does not fully capture the time series so it could be argued there is significant autocorrelation.
+
+
+---
+
+# Examining data over time.
+
+The code before will check the temperature levels during the whole dataset and during a specific time period.
+```{r}
+plot(nottem, main="Temperature", ylab="nottem", xlab="Year")
+plot(window(nottem, start=1920, end=1925),main="Temperature(1920–1925)",ylab="Temperature",xlab = "Year")
+summary(nottem)
+```
+
+- plot(nottem, main="Temperature", ylab="nottem", xlab="Year") plots the full nottem time series.
+
+- plot(window(nottem, start=1920, end=1925),main="Temperature(1920–1925)",ylab="Temperature",xlab = "Year") plots the time series across the year 1920-1925
+
+- summary(nottem) produces a summary of the dataset with the mean, median, max, min and quartiles.
+
+In the whole nottem plot it is clearly shown that there is no strong overall trend, but there is clear seasonality within the graph. Although over the 5 year time period the nottem levels look fairly stable with a decent overall level but the seasonal pattern seems to be the main feature in the graph, with this it is much easier to see the effect of seasonality.
+The summary shows that the max is 66.5 and the min is 31.3, this suggests a noticeable range in the temperature. The mean and median are similar with 49.04 and 47.35 which suggests that the data is fairly symmetrical.  
+
+---
+
+# Linear regression model
+
+The code below will plot the linear regression model, which finds the best straight line for the dataset.
+```{r}
+linearmodel = lm(y ~ as.numeric(ds), data = nottemdata)
+summary(linearmodel)
+```
+
+- linearmodel = lm(y ~ as.numeric(ds), data = nottemdata) fits a linear regression model to the nottem data converting ds into numeric form allows the model to measure if there is an upward or downward trend
+
+- summary(linearmodel) produces the regression coefficients this includes the R squared the p value and the estimated slope and other model statistics.
+
+The linear regression model checks if there is significant evidence for an overall trend. This linear regression model shows a marginal increase of the data by about 0.0002 each day. However, the p value is 0.4458 which suggests that the trend is not statistically significant, so there is no significant evidence that there is an upwards trend. The R squared is 0.002445 which is extremely low and it suggests that the linear regression model explains very little of the variation in the dataset.
+
+---
+
+# Comparison with another model
+
+This section will show how the Holt-Winters model models the nottem data set
+
+##  Forecasting using Holt-Winters
+
+The code below depicts nottem being forecast using the Holt-Winters model.
+```{r, warning=FALSE, message=FALSE}
+hw_model = HoltWinters(nottem)
+hw_forecast = predict(hw_model, n.ahead = 24)
+plot(nottem, xlim = c(1920, 1942), main = "Holt-Winters Forecast for nottem", ylab = "Temperature", xlab = "Time")
+lines(hw_forecast, col = "red")
+```
+
+- hw_model = HoltWinters(nottem) fits a Holt-Winters model to the nottem time series.
+
+- hw_forecast = predict(hw_model, n.ahead = 24) uses the fitted model to predict the next 24 months in advance.
+
+- plot(nottem, xlim = c(1920, 1942), main = "Holt-Winters Forecast for nottem", ylab = "Temperature", xlab = "Time") plots the original nottem time series and produces the next n=24 months.
+
+- lines(hw_forecast, col = "red") depicts the forecast lines in red.
+
+This graph displays the Holt-Winters forecast the nottem data. With the black lines showing the observed values and the red line showing the predicted values. The forecast follows the same seasonal pattern as was suggested by the nottem data which suggests it is a suitable fit for the data. The graph suggests strong seasonality but no major long term trend for both the Prophet and Holt-Winters.
+
+
+## Residual diagnostics for the Holt-Winters models
+
+
+```{r, warning=FALSE, message=FALSE}
+hw_residuals = residuals(hw_model)
+acf(hw_residuals, main = "ACF of Holt-Winters Residuals")
+Box.test(hw_residuals, lag = 12, type = "Ljung-Box")
+```
+
+- hw_residuals = residuals(hw_model) creates the residuals for the Holt-Winters model.
+
+The ACF demonstrates that most of the autocorrelations are small and lie within the significance boundaries but there are some notable outliers like 0.1 and 1 so there is reason to be sceptical over Holt-Winters model. The p value generated is 0.01028 which is small and suggests that the residuals are not completely white noise which is similar to the Prophet model so likewise although the model fit the data reasonably well it did not fully capture all of the time series structure.
+
+## Comparison of Prophet and Holt-Winters models
+
+The Prophet model and the Holt-Winters model were both able to reflect the clear seasonal pattern of the nottem time series. Both models suggested that there was no overall major trend in the time series to suggest an upward or downward future. The residual analysis for both found that autocorrelation remained, meaning neither model was able to fully capture the time series structure. Both models were useful for analysis but neither could give fully white noise.
+
+---
+
+# Limitations of the analysis
+
+A limitation is that the residual diagnostics for both models showed that autocorrelation remained in both, meaning they failed to fully capture the time series. Another limitation is that only 2 models were checked being Prophet and Holt-Winters other models may have performed much differently so the effectiveness of the Prophet is relatively unknown in comparison. While both models were useful for exploring the main features of the data, the forecasting performance should be taken with some sort of caution due to these limitations.
+
+
+---
+
+# Overall Conclusion 
+
+Overall, the nottem dataset shows a strong seasonal pattern but no strong overall trend. The Prophet model was able to capture the main features of the time series, like with the repeating yearly fluctuations in temperature. The forecast suggests that the seasonal pattern is likely to continue into the future periods however, the residual diagnostics showed that some autocorrelation remained, which means that not all of the structure of the series remained. The linear regression model further suggests the lack of an overall trend with no conclusive evidence to prove a rise with a p value of 0.4458. Additionally, the Holt-Winters model reflected strong seasonality but no strong trend. The limitation of only 2 models being checked means that the project should be taken with some caution in the effectiveness of the Prophet model as another model may be significantly more efficient. In conclusion, the Prophet model is useful for modelling the main aspects of the nottem time series, mainly in its seasonality and provides a reasonable forecast for future values. 
+
+---
+```{r, echo=FALSE}
+# This code will display the QMUL logo at the top right of the page
+# Do not change this code
+htmltools::img(src = knitr::image_uri("images/QMlogo.png"),
+               alt = 'logo',
+               style = 'position:absolute; top:0; right:0; padding:10px; width:20%;')
+```
+---
+
+
+
+
